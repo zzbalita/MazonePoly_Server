@@ -3,9 +3,9 @@ const path = require("path");
 const fs = require("fs");
 
 // Tạo thư mục uploads nếu chưa tồn tại
-const uploadDir = path.join(__dirname, "..", "uploads");
+const uploadDir = path.join("/tmp", "uploads");
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
+  fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 // Cấu hình nơi lưu file và tên file
