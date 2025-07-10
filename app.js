@@ -13,7 +13,18 @@ const app = express();
 
 // Middleware cơ bản
 app.use(logger("dev"));
-app.use(cors());
+const allowedOrigins = [
+    "http://localhost:3000", // dùng khi phát triển local
+    "https://mazonepoly-admin.vercel.app", // domain frontend trên Vercel
+];
+
+app.use(
+    cors({
+        origin: allowedOrigins,
+        credentials: true, // nếu có dùng cookie; nếu không thì vẫn nên để an toàn
+    })
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
