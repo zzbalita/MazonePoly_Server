@@ -30,9 +30,10 @@ app.use(
       }
     },
     credentials: true,
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    allowedHeaders: "Content-Type,Authorization", // ✅ Cho phép header dùng trong frontend
   })
 );
-
 
 /* ---------- Body Parser & Cookie ---------- */
 app.use(express.json());
@@ -45,14 +46,14 @@ app.use("/uploads", express.static("/tmp/uploads"));
 
 /* ---------- Routes ---------- */
 app.use("/", require("./routes/index"));
-app.use("/api/admin",            require("./routes/admin.routes"));
-app.use("/api/products",         require("./routes/product.routes"));
-app.use("/api/categories",       require("./routes/category.routes"));
-app.use("/api/brands",           require("./routes/brand.routes"));
-app.use("/api/sizes",            require("./routes/size.routes"));
+app.use("/api/admin",              require("./routes/admin.routes"));
+app.use("/api/products",           require("./routes/product.routes"));
+app.use("/api/categories",         require("./routes/category.routes"));
+app.use("/api/brands",             require("./routes/brand.routes"));
+app.use("/api/sizes",              require("./routes/size.routes"));
 app.use("/api/description-fields", require("./routes/descriptionField.routes"));
-app.use("/api/upload",           require("./routes/upload.routes"));
-app.use("/api/auth",             require("./routes/auth.routes"));
-app.use("/api/users",            require("./routes/user.routes"));
+app.use("/api/upload",             require("./routes/upload.routes"));
+app.use("/api/auth",               require("./routes/auth.routes"));
+app.use("/api/users",              require("./routes/user.routes"));
 
 module.exports = app;
