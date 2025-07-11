@@ -6,28 +6,23 @@ const logger = require("morgan");
 const cors = require("cors");
 const connectDB = require("./config/db");
 
-// Kết nối DB
+// Kết nối MongoDB
 connectDB();
 
 const app = express();
 
-/* ---------- Logging ---------- */
-app.use(logger("dev"));
+// ✅ Log origin để kiểm tra
+app.use((req, res, next) => {
+  console.log("👉 Origin:", req.headers.origin);
+  next();
+});
 
-/* ---------- CORS ---------- */
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://mazonepoly-admin.vercel.app",
-];
-
+// ✅ CORS cấu hình chuẩn
 const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: [
+    "http://localhost:3000",
+    "https://mazonepoly-admin.vercel.app",
+  ],
   credentials: true,
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -35,19 +30,20 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// ⚠️ THÊM ĐOẠN NÀY ĐỂ XỬ LÝ PRE-FLIGHT CHO CORS
+// ✅ Phải có để xử lý OPTIONS request (preflight)
 app.options("*", cors(corsOptions));
 
-/* ---------- Body Parser & Cookie ---------- */
+// Các middleware khác
+app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-/* ---------- Static ---------- */
+// Static folder
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/uploads", express.static("/tmp/uploads"));
 
-/* ---------- Routes ---------- */
+// Routes
 app.use("/", require("./routes/index"));
 app.use("/api/admin", require("./routes/admin.routes"));
 app.use("/api/products", require("./routes/product.routes"));
