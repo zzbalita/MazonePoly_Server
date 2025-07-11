@@ -30,7 +30,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// ĐĂNG NHẬP
+// // ĐĂNG NHẬP
 exports.login = async (req, res) => {
   const { phone, password } = req.body;
 
@@ -55,6 +55,30 @@ exports.login = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+// ĐỔI MẬT KHẨU
+exports.changePassword = async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  const adminId = req.user.id; // Lấy từ middleware xác thực
+
+  try {
+    const admin = await Admin.findById(adminId);
+    if (!admin) return res.status(404).json({ message: "Không tìm thấy admin" });
+
+    const isMatch = await bcrypt.compare(oldPassword, admin.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Mật khẩu cũ không đúng" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    admin.password = hashedPassword;
+    await admin.save();
+
+    res.json({ message: "Đổi mật khẩu thành công" });
+  } catch (error) {
+    console.error("Lỗi đổi mật khẩu:", error);
     res.status(500).json({ message: "Lỗi server" });
   }
 };
