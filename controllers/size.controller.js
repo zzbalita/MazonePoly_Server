@@ -13,7 +13,7 @@ exports.getAllSizes = async (req, res) => {
 // POST create size Thêm
 exports.createSize = async (req, res) => {
   try {
-    const { name } = req.body?.name?.trim();     // trim để tránh " M "
+    const name = req.body?.name?.trim();
     if (!name) return res.status(400).json({ message: "Tên size không hợp lệ" });
 
     // Kiểm tra trùng
