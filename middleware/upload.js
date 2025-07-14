@@ -1,7 +1,6 @@
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("cloudinary").v2;
 
@@ -9,26 +8,24 @@ const isProduction = process.env.NODE_ENV === "production";
 
 let storage;
 
-//  Nếu là production => dùng Cloudinary
 if (isProduction) {
-  // Cấu hình Cloudinary
+  // Cloudinary config (Render/Vercel)
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
 
-  // Cấu hình lưu trữ Cloudinary
   storage = new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
-      folder: "mazone", // Tên thư mục lưu ảnh
+      folder: "mazone",
       allowed_formats: ["jpg", "jpeg", "png", "gif", "webp"],
       transformation: [{ width: 800, height: 800, crop: "limit" }],
     },
   });
 } else {
-  //  Nếu là localhost => lưu vào ổ đĩa
+  // Local upload (to /tmp/uploads)
   const uploadDir = path.join("/tmp", "uploads");
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
@@ -45,17 +42,13 @@ if (isProduction) {
   });
 }
 
-// Kiểm tra định dạng ảnh
 const fileFilter = (req, file, cb) => {
   const allowedTypes = /jpeg|jpg|png|gif|webp/;
   const ext = path.extname(file.originalname).toLowerCase();
   const mimeType = allowedTypes.test(file.mimetype);
   const extname = allowedTypes.test(ext);
-
-  if (mimeType && extname) {
-    return cb(null, true);
-  }
-  cb(new Error("❌ Chỉ cho phép các định dạng ảnh: jpeg, jpg, png, gif, webp"));
+  if (mimeType && extname) return cb(null, true);
+  cb(new Error(" Chỉ chấp nhận ảnh jpeg, jpg, png, gif, webp"));
 };
 
 const upload = multer({ storage, fileFilter });
