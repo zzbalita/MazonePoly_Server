@@ -2,23 +2,48 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-// Tạo thư mục uploads nếu chưa tồn tại
-const uploadDir = path.join("/tmp", "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("cloudinary").v2;
 
-// Cấu hình nơi lưu file và tên file
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir); // Lưu vào /uploads trong root project
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const uniqueName = Date.now() + "-" + file.originalname.replace(/\s+/g, "_");
-    cb(null, uniqueName);
-  },
-});
+const isProduction = process.env.NODE_ENV === "production";
+
+let storage;
+
+//  Nếu là production => dùng Cloudinary
+if (isProduction) {
+  // Cấu hình Cloudinary
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+
+  // Cấu hình lưu trữ Cloudinary
+  storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+      folder: "mazone", // Tên thư mục lưu ảnh
+      allowed_formats: ["jpg", "jpeg", "png", "gif", "webp"],
+      transformation: [{ width: 800, height: 800, crop: "limit" }],
+    },
+  });
+} else {
+  //  Nếu là localhost => lưu vào ổ đĩa
+  const uploadDir = path.join("/tmp", "uploads");
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+      const uniqueName = Date.now() + "-" + file.originalname.replace(/\s+/g, "_");
+      cb(null, uniqueName);
+    },
+  });
+}
 
 // Kiểm tra định dạng ảnh
 const fileFilter = (req, file, cb) => {

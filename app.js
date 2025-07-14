@@ -11,13 +11,17 @@ connectDB();
 
 const app = express();
 
-// ✅ Log origin để kiểm tra
+// Biến môi trường
+const isProduction = process.env.NODE_ENV === "production";
+
+
+// Log origin để kiểm tra request từ đâu
 app.use((req, res, next) => {
-  console.log("👉 Origin:", req.headers.origin);
+  console.log("=> Origin:", req.headers.origin);
   next();
 });
 
-// ✅ CORS cấu hình chuẩn
+// CORS cấu hình chuẩn cho cả localhost và vercel
 const corsOptions = {
   origin: [
     "http://localhost:3000",
@@ -27,23 +31,24 @@ const corsOptions = {
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   allowedHeaders: ["Content-Type", "Authorization"],
 };
-
 app.use(cors(corsOptions));
-
-// ✅ Phải có để xử lý OPTIONS request (preflight)
 app.options("*", cors(corsOptions));
 
-// Các middleware khác
+// Các middleware cần thiết
 app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-// Static folder
-app.use(express.static(path.join(__dirname, "public")));
-app.use("/uploads", express.static("/tmp/uploads"));
+// Static folder cho ảnh upload (chỉ dùng ở local)
+if (!isProduction) {
+  app.use("/uploads", express.static(path.join("/tmp", "uploads")));
+  console.log("=> Đang dùng ảnh local từ /tmp/uploads");
+} else {
+  console.log("=> Đang dùng Cloudinary - không cần /uploads");
+}
 
-// Routes
+// Các routes
 app.use("/", require("./routes/index"));
 app.use("/api/admin", require("./routes/admin.routes"));
 app.use("/api/products", require("./routes/product.routes"));
