@@ -42,9 +42,10 @@ app.use(cookieParser());
 
 // Static folder cho ảnh upload (chỉ dùng ở local)
 if (!isProduction) {
-  app.use("/uploads", express.static(path.join("/tmp", "uploads")));
-  console.log("=> Đang dùng ảnh local từ /tmp/uploads");
-} else {
+  const uploadsPath = path.join(__dirname, "tmp", "uploads"); //dùng __dirname
+  app.use("/uploads", express.static(uploadsPath));
+  console.log("=> Đang dùng ảnh local từ", uploadsPath);
+}else {
   console.log("=> Đang dùng Cloudinary - không cần /uploads");
 }
 

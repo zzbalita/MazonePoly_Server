@@ -13,9 +13,7 @@ module.exports = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Nếu tạo token là: jwt.sign({ id: admin._id }, ...)
-    req.user = {
-      id: decoded.id, // hoặc decoded._id tuỳ vào lúc tạo token
-    };
+   req.user = { userId: decoded.id };  
 
     next();
   } catch (err) {
