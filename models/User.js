@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 const Schema = mongoose.Schema;
 
 const Users = new Schema({
@@ -9,8 +10,10 @@ const Users = new Schema({
     required: true,
     unique: true,
     lowercase: true,
-    trim: true
+    trim: true,
+    match: [/.+@.+\..+/, 'Email không hợp lệ']
   },
+
 
   password: { type: String, required: true }, // bcrypt hash trước khi lưu
 
@@ -24,9 +27,11 @@ const Users = new Schema({
   phone_number: {
     type: String,
     unique: true,
-    sparse: true, // chỉ unique nếu tồn tại
-    default: null // đảm bảo undefined sẽ là null trong Mongo
+    sparse: true,
+    trim: true,
+    default: null
   },
+
 
   shipping_phone_number: {
     type: String,
@@ -39,12 +44,6 @@ const Users = new Schema({
 
   avatar_url: { type: String },
 
-  uid: {
-    type: String,
-    unique: true,
-    sparse: true,
-    default: null // thêm để tránh lỗi trùng uid = null
-  },
 
   google_id: {
     type: String,
@@ -69,5 +68,22 @@ const Users = new Schema({
     updatedAt: 'updated_at'
   }
 });
+// Tự động hash password trước khi lưu
+Users.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+
+  // Kiểm tra nếu đã hash rồi (đã có dạng bcrypt)
+  const isAlreadyHashed = /^\$2[aby]\$.{56}$/.test(this.password);
+  if (isAlreadyHashed) return next(); // Bỏ qua nếu đã là bcrypt
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
 
 module.exports = mongoose.model('user', Users, 'users');

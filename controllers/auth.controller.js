@@ -24,7 +24,7 @@ exports.register = async (req, res) => {
       { email },
       {
         code: otp,
-        expiresAt: new Date(Date.now() + 1 * 60 * 1000), // Hết hạn sau 10 phút
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // Hết hạn sau 10 phút
       },
       { upsert: true, new: true }
     );
@@ -55,28 +55,32 @@ exports.verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "Mã OTP không hợp lệ hoặc đã hết hạn" });
     }
 
-    // 2. Mã hóa mật khẩu
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // 2. Kiểm tra xem tài khoản đã tồn tại chưa
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Tài khoản đã tồn tại, vui lòng đăng nhập" });
+    }
 
-    // 3. Tạo tài khoản
-    const newUser = await User.create({
+    // 3. Tạo tài khoản (password sẽ được hash nhờ pre('save'))
+    const newUser = new User({
       email,
       full_name,
-      password: hashedPassword,
+      password,
       is_phone_verified: false,
     });
+    await newUser.save();
 
-    // 4. Xóa OTP
+    // 4. Xoá OTP sau khi xác minh
     await OtpCode.deleteMany({ email });
 
-    // 5. Tạo access token
+    // 5. Tạo JWT token
     const token = jwt.sign(
       { userId: newUser._id, role: newUser.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // 6. Trả về token và thông tin user
+    // 6. Trả về kết quả
     res.json({
       message: "Đăng ký và xác minh thành công",
       token,
@@ -88,36 +92,44 @@ exports.verifyOtp = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error("Lỗi xác minh OTP:", err);
+    if (err.code === 11000 && err.keyPattern && err.keyPattern.email) {
+      return res.status(400).json({ message: "Email đã tồn tại" });
+    }
     res.status(500).json({ message: "Lỗi máy chủ" });
   }
 };
+
+// 3. Đăng nhập
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
     // Kiểm tra email
     const user = await User.findOne({ email });
-    if (!user)
+    if (!user) {
       return res.status(400).json({ message: "Email hoặc mật khẩu không đúng" });
+    }
 
-    // So sánh password
+    // So sánh mật khẩu
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
+    if (!isMatch) {
       return res.status(400).json({ message: "Email hoặc mật khẩu không đúng" });
+    }
 
-    // Kiểm tra tài khoản bị khóa
+    // Kiểm tra trạng thái
     if (user.status === 0) {
       return res.status(403).json({ message: "Tài khoản của bạn đã bị khóa" });
     }
 
     // Tạo JWT token
     const token = jwt.sign(
-      { id: user._id, email: user.email, role: user.role },
+      { userId: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
+    // Trả về kết quả
     res.json({
       message: "Đăng nhập thành công",
       token,
@@ -130,7 +142,7 @@ exports.login = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error("Lỗi khi đăng nhập:", err);
     res.status(500).json({ message: "Lỗi server" });
   }
 };

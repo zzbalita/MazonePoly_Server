@@ -9,4 +9,7 @@ router.get('/me', authMiddleware, userController.getMe);
 // Cập nhật thông tin cá nhân
 router.put('/update-profile', authMiddleware, userController.updateProfile);
 
+//đổi mk
+router.put('/change-password', authMiddleware, userController.changePassword);
+
 module.exports = router;

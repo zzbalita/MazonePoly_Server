@@ -12,8 +12,11 @@ module.exports = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Nếu tạo token là: jwt.sign({ id: admin._id }, ...)
-   req.user = { userId: decoded.id };  
+    // Gán đúng theo token đã tạo: { userId: ..., role: ... }
+    req.user = {
+      userId: decoded.userId,
+      role: decoded.role,
+    };
 
     next();
   } catch (err) {
