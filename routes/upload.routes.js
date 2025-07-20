@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const upload = require("../middleware/upload"); // đã xử lý phân biệt Cloudinary & Local
+const User = require("../models/User");
 
 const isProduction = process.env.NODE_ENV === "production";
 const serverURL = process.env.SERVER_URL || "http://localhost:5000";
@@ -36,14 +37,23 @@ router.post(
   }
 );
 
-// Upload avatar (1 ảnh)
-router.post("/avatar", upload.single("avatar"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: "Không có file được tải lên" });
-  }
+// Route upload avatar và tự động lưu vào DB
+router.post("/avatar", authMiddleware, upload.single("avatar"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Không có file được tải lên" });
+    }
 
-  const url = getFileUrl(req.file);
-  res.json({ url });
+    const avatarUrl = getFileUrl(req.file);
+
+    // Cập nhật avatar_url cho user đang đăng nhập
+    await User.findByIdAndUpdate(req.user.userId, { avatar_url: avatarUrl });
+
+    res.status(200).json({ message: "Cập nhật avatar thành công", url: avatarUrl });
+  } catch (error) {
+    console.error("Lỗi upload avatar:", error);
+    res.status(500).json({ message: "Lỗi server khi cập nhật avatar" });
+  }
 });
 
 module.exports = router;
