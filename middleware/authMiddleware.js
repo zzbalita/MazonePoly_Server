@@ -12,9 +12,9 @@ module.exports = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 👉 Map userId từ token về thành _id để dùng với MongoDB
+    // Giữ nguyên userId 
     req.user = {
-      _id: decoded.userId, // dùng cho User.findById(req.user._id)
+      userId: decoded.userId,
       role: decoded.role,
     };
 
