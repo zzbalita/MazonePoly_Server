@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const upload = require("../middleware/upload"); // đã xử lý phân biệt Cloudinary & Local
 const User = require("../models/User");
+const authMiddleware = require("../middleware/authMiddleware");
 
 const isProduction = process.env.NODE_ENV === "production";
 const serverURL = process.env.SERVER_URL || "http://localhost:5000";
