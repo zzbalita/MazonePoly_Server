@@ -1,6 +1,8 @@
 const Product = require("../models/Product");
 const cloudinary = require("../utils/cloudinary");
 const path = require("path");
+const mongoose = require("mongoose");
+
 
 // Kiểm tra có dùng Cloudinary không
 const useCloudinary = process.env.USE_CLOUDINARY === "true";
@@ -22,7 +24,14 @@ function extractPublicId(url) {
 // Lấy tất cả sản phẩm
 exports.getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find().sort({ createdAt: -1 });
+    const filter = {};
+
+    if (req.query.featured === 'true') {
+      filter.is_featured = true;
+    }
+
+    const products = await Product.find(filter).sort({ createdAt: -1 });
+
     res.json(products);
   } catch (err) {
     console.error("Lỗi khi lấy danh sách sản phẩm:", err);
@@ -108,6 +117,7 @@ exports.createProduct = async (req, res) => {
       brand: brand.trim(),
       variations,
       status: status.trim(),
+      is_featured: req.body.is_featured === 'true' || req.body.is_featured === true,
     });
 
     res.status(201).json(product);
@@ -121,6 +131,11 @@ exports.createProduct = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const updateData = { ...req.body };
+
+    if (typeof req.body.is_featured !== 'undefined') {
+      updateData.is_featured = req.body.is_featured === 'true' || req.body.is_featured === true;
+    }
+
 
     // Parse description
     if (typeof updateData.description === "string") {
@@ -232,3 +247,23 @@ exports.deleteProduct = async (req, res) => {
   }
 };
 
+exports.toggleFeatured = async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "ID sản phẩm không hợp lệ." });
+  }
+
+  try {
+    const product = await Product.findById(id);
+    if (!product) return res.status(404).json({ message: "Không tìm thấy sản phẩm." });
+
+    product.is_featured = !product.is_featured;
+    await product.save();
+
+    res.json({ message: "Cập nhật trạng thái nổi bật thành công.", is_featured: product.is_featured });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Lỗi server." });
+  }
+};

@@ -26,7 +26,9 @@ if (isProduction) {
   });
 } else {
   // Local upload (to /tmp/uploads)
-  const uploadDir = path.join("/tmp", "uploads");
+  // Sửa lại cho trùng với path static bạn dùng ở app.js
+  const uploadDir = path.join(__dirname, "..", "tmp", "uploads");
+
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }

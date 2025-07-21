@@ -30,6 +30,8 @@ const ProductSchema = new mongoose.Schema(
     ],
 
     status: { type: String, default: "Đang bán" },
+    
+    is_featured: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

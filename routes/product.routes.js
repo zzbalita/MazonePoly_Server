@@ -24,5 +24,9 @@ router.put("/:id", multiUpload, productController.updateProduct);
 // DELETE - xóa sản phẩm
 router.delete("/:id", productController.deleteProduct);
 
+// PUT /api/admin/products/:id/featured
+router.put("/:id/featured", productController.toggleFeatured);
+
+
 
 module.exports = router;
