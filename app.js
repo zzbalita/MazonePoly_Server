@@ -60,5 +60,9 @@ app.use("/api/description-fields", require("./routes/descriptionField.routes"));
 app.use("/api/upload", require("./routes/upload.routes"));
 app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/users", require("./routes/user.routes"));
+// Nhóm route quản lý user bởi admin
+app.use("/api/admin", require("./routes/adminUser.routes"));
+
+
 
 module.exports = app;

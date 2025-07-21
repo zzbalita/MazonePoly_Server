@@ -1,6 +1,8 @@
 const Admin = require("../models/Admin");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const OtpCode = require("../models/otp.model");
+const sendMail = require("../utils/sendMail");
 
 // ĐĂNG KÝ
 exports.register = async (req, res) => {
@@ -11,6 +13,15 @@ exports.register = async (req, res) => {
     if (existingAdmin) {
       return res.status(400).json({ message: "Số điện thoại đã được sử dụng" });
     }
+    const existingEmail = await Admin.findOne({ email });
+    if (existingEmail) {
+      return res.status(400).json({ message: "Email đã được sử dụng" });
+    }
+    const existingUsername = await Admin.findOne({ username });
+    if (existingUsername) {
+      return res.status(400).json({ message: "Username đã tồn tại" });
+    }
+
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -41,7 +52,12 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, admin.password);
     if (!isMatch) return res.status(400).json({ message: "Sai mật khẩu" });
 
-    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+    const token = jwt.sign(
+      { userId: admin._id, role: admin.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
 
     res.json({
       token,
@@ -61,7 +77,7 @@ exports.login = async (req, res) => {
 // ĐỔI MẬT KHẨU
 exports.changePassword = async (req, res) => {
   const { oldPassword, newPassword } = req.body;
-  const adminId = req.user.id; // Lấy từ middleware xác thực
+  const adminId = req.user.userId; // Lấy từ middleware xác thực
 
   try {
     const admin = await Admin.findById(adminId);
@@ -80,5 +96,68 @@ exports.changePassword = async (req, res) => {
   } catch (error) {
     console.error("Lỗi đổi mật khẩu:", error);
     res.status(500).json({ message: "Lỗi server" });
+  }
+};
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+exports.sendAdminOtp = async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ message: "Email là bắt buộc" });
+
+  const admin = await Admin.findOne({ email });
+  if (!admin) return res.status(404).json({ message: "Email không tồn tại trong hệ thống" });
+
+  const code = generateOTP();
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // OTP hết hạn sau 5 phút
+
+  try {
+    await OtpCode.findOneAndUpdate(
+      { email },
+      { code, expiresAt },
+      { upsert: true, new: true }
+    );
+
+    const html = `
+      <h2>Mã xác thực đặt lại mật khẩu:</h2>
+      <h3>${code}</h3>
+      <p>Mã có hiệu lực trong 5 phút. Không chia sẻ với bất kỳ ai.</p>
+    `;
+
+    await sendMail(email, "Mã OTP xác minh quản trị viên Mazone", html);
+
+    res.json({ message: "✅ Mã OTP đã được gửi qua email" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Lỗi khi gửi OTP" });
+  }
+};
+exports.resetAdminPassword = async (req, res) => {
+  const { email, code, newPassword } = req.body;
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ message: "Thiếu thông tin cần thiết" });
+  }
+
+  try {
+    const otpRecord = await OtpCode.findOne({ email });
+    if (!otpRecord || otpRecord.code !== code) {
+      return res.status(400).json({ message: "OTP không hợp lệ" });
+    }
+
+    if (otpRecord.expiresAt < new Date()) {
+      return res.status(400).json({ message: "OTP đã hết hạn" });
+    }
+
+    const admin = await Admin.findOne({ email });
+    if (!admin) return res.status(404).json({ message: "Không tìm thấy admin" });
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    admin.password = hashed;
+    await admin.save();
+    await OtpCode.deleteOne({ email });
+
+    res.json({ message: "✅ Đặt lại mật khẩu thành công" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Lỗi hệ thống" });
   }
 };
