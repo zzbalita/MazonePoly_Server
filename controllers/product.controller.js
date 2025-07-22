@@ -267,3 +267,19 @@ exports.toggleFeatured = async (req, res) => {
     res.status(500).json({ message: "Lỗi server." });
   }
 };
+// Lấy sản phẩm liên quan theo category (loại trừ sản phẩm hiện tại)
+exports.getRelatedProductsByCategory = async (req, res) => {
+  const { category, exclude } = req.query;
+
+  try {
+    const products = await Product.find({
+      category,
+      _id: { $ne: exclude },
+    }).limit(8);
+
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi khi lấy sản phẩm liên quan" });
+  }
+};
+

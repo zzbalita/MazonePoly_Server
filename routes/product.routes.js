@@ -12,6 +12,10 @@ const multiUpload = upload.fields([
 // GET - danh sách sản phẩm
 router.get("/", productController.getAllProducts);
 
+// routes/product.route.js
+router.get('/related/by-category', productController.getRelatedProductsByCategory);
+
+
 // GET -  ctiet danh sách sản phẩm
 router.get("/:id", productController.getProductById);
 
@@ -26,6 +30,8 @@ router.delete("/:id", productController.deleteProduct);
 
 // PUT /api/admin/products/:id/featured
 router.put("/:id/featured", productController.toggleFeatured);
+
+
 
 
 
