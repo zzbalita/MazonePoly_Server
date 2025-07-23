@@ -26,11 +26,22 @@ exports.getAllProducts = async (req, res) => {
   try {
     const filter = {};
 
+    // Lọc theo featured
     if (req.query.featured === 'true') {
       filter.is_featured = true;
     }
 
-    const products = await Product.find(filter).sort({ createdAt: -1 });
+    // Lọc theo tên danh mục (category)
+    if (req.query.category) {
+      filter.category = {
+        $regex: `^${req.query.category}$`,
+        $options: 'i' // Không phân biệt hoa thường
+      };
+    }
+
+    const products = await Product.find(filter)
+      .collation({ locale: 'vi', strength: 1 }) // Hỗ trợ tiếng Việt
+      .sort({ createdAt: -1 });
 
     res.json(products);
   } catch (err) {
@@ -38,6 +49,8 @@ exports.getAllProducts = async (req, res) => {
     res.status(500).json({ message: "Lỗi server khi lấy sản phẩm" });
   }
 };
+
+
 
 // Lấy sản phẩm theo ID
 exports.getProductById = async (req, res) => {
