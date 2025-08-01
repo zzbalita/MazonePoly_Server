@@ -26,8 +26,8 @@ const Users = new Schema({
 
   phone_number: {
     type: String,
-    unique: true,
-    sparse: true,
+    // unique: true,
+    // sparse: true,
     trim: true,
     default: null
   },
