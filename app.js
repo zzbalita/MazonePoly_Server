@@ -6,7 +6,7 @@ const logger = require("morgan");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const addressRoutes = require('./routes/address.route');
-
+const orderRoutes = require("./routes/order.routes");
 // Kết nối MongoDB
 connectDB();
 
@@ -64,6 +64,6 @@ app.use("/api/users", require("./routes/user.routes"));
 // Nhóm route quản lý user bởi admin
 app.use("/api/admin", require("./routes/adminUser.routes"));
 app.use('/api/addresses', addressRoutes);
-
+app.use("/api/orders", orderRoutes);
 
 module.exports = app;
