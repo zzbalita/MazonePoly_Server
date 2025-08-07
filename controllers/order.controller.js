@@ -1,5 +1,6 @@
 const Order = require('../models/Order');
 const User = require('../models/User');
+const Product = require('../models/Product');
 
 exports.createCashOrder = async (req, res) => {
   try {
@@ -16,7 +17,6 @@ exports.createCashOrder = async (req, res) => {
       return res.status(401).json({ message: 'Người dùng chưa được xác thực.' });
     }
 
-    // Kiểm tra thông tin đầu vào
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ message: 'Danh sách sản phẩm không hợp lệ.' });
     }
@@ -26,6 +26,21 @@ exports.createCashOrder = async (req, res) => {
       if (!product_id || !color || !size || !quantity || !price) {
         return res.status(400).json({
           message: 'Mỗi sản phẩm phải có đủ: product_id, color, size, quantity, price.'
+        });
+      }
+
+      const product = await Product.findById(product_id);
+      if (!product) {
+        return res.status(404).json({ message: `Không tìm thấy sản phẩm.` });
+      }
+
+      const variant = product.variations.find(
+        (v) => v.color === color && v.size === size
+      );
+
+      if (!variant || variant.quantity < quantity) {
+        return res.status(400).json({
+          message: `Sản phẩm ${product.name} (${color} - ${size}) không đủ hàng trong kho.`
         });
       }
     }
@@ -46,7 +61,6 @@ exports.createCashOrder = async (req, res) => {
       return res.status(400).json({ message: 'shipping_fee và total_amount phải là số.' });
     }
 
-    // Tạo đơn hàng
     const order = new Order({
       user_id,
       items,
@@ -111,14 +125,36 @@ exports.updateOrderStatus = async (req, res) => {
       });
     }
 
+    // Trừ kho khi chuyển sang "confirmed"
+    if (currentStatus === 'pending' && newStatus === 'confirmed') {
+      const Product = require('../models/Product');
+
+      for (const item of order.items) {
+        const product = await Product.findById(item.product_id);
+        if (!product) continue;
+
+        const variant = product.variations.find(
+          (v) => v.color === item.color && v.size === item.size
+        );
+
+        if (!variant || variant.quantity < item.quantity) {
+          return res.status(400).json({ message: `Sản phẩm ${item.name} không đủ hàng.` });
+        }
+
+        variant.quantity -= item.quantity;
+        product.quantity -= item.quantity;
+        await product.save();
+      }
+    }
+
     order.status = newStatus;
     await order.save();
 
-    // ✅ An toàn khi gửi WebSocket
+    // Gửi WebSocket cập nhật
     const connectedUsers = req.app.get("connectedUsers");
     const io = req.app.get("io");
 
-    if (connectedUsers && connectedUsers instanceof Map && io) {
+    if (connectedUsers && io) {
       const socketId = connectedUsers.get(order.user_id.toString());
       if (socketId) {
         io.to(socketId).emit("orderStatusUpdated", {
