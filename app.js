@@ -65,5 +65,6 @@ app.use("/api/users", require("./routes/user.routes"));
 app.use("/api/admin", require("./routes/adminUser.routes"));
 app.use('/api/addresses', addressRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/payments", require("./routes/payment.routes"));
 
 module.exports = app;

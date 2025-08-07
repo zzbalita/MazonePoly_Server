@@ -24,7 +24,7 @@ const orderSchema = new mongoose.Schema({
   },
 
   shipping_fee: { type: Number, required: true },
-  payment_method: { type: String, enum: ['cash', 'momo'], required: true },
+  payment_method: { type: String, enum: ['cash', 'momo', 'vnpay'], required: true },
   total_amount: { type: Number, required: true },
   status: {
     type: String,
