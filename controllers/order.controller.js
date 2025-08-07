@@ -218,7 +218,68 @@ exports.cancelOrder = async (req, res) => {
   }
 };
 
+// Thêm function tạo đơn hàng VNPay
+exports.createVNPayOrder = async (req, res) => {
+  try {
+    const {
+      items,
+      address,
+      shipping_fee,
+      total_amount
+    } = req.body;
 
+    const user_id = req.user?.userId;
+    if (!user_id) {
+      return res.status(401).json({ message: 'Người dùng chưa được xác thực.' });
+    }
 
+    // Kiểm tra thông tin đầu vào
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: 'Danh sách sản phẩm không hợp lệ.' });
+    }
 
+    for (const item of items) {
+      const { product_id, color, size, quantity, price } = item;
+      if (!product_id || !color || !size || !quantity || !price) {
+        return res.status(400).json({
+          message: 'Mỗi sản phẩm phải có đủ: product_id, color, size, quantity, price.'
+        });
+      }
+    }
 
+    if (
+      !address ||
+      !address.full_name ||
+      !address.phone_number ||
+      !address.province ||
+      !address.district ||
+      !address.ward ||
+      !address.street
+    ) {
+      return res.status(400).json({ message: 'Địa chỉ giao hàng không đầy đủ.' });
+    }
+
+    if (typeof shipping_fee !== 'number' || typeof total_amount !== 'number') {
+      return res.status(400).json({ message: 'shipping_fee và total_amount phải là số.' });
+    }
+
+    // Tạo đơn hàng với payment_method = 'vnpay'
+    const order = new Order({
+      user_id,
+      items,
+      address,
+      shipping_fee,
+      payment_method: 'vnpay',
+      total_amount,
+      status: 'pending',
+      payment_info: {}
+    });
+
+    const savedOrder = await order.save();
+
+    res.status(201).json(savedOrder);
+  } catch (error) {
+    console.error('Lỗi khi tạo đơn hàng VNPay:', error);
+    res.status(500).json({ message: 'Tạo đơn hàng thất bại.' });
+  }
+};
