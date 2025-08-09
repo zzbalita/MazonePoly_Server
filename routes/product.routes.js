@@ -8,6 +8,8 @@ const multiUpload = upload.fields([
   { name: "image", maxCount: 1 },        // Ảnh đại diện
   { name: "images", maxCount: 10 }       // Danh sách ảnh
 ]);
+// Route tìm kiếm sản phẩm theo từ khóa (tên hoặc danh mục)
+router.get('/search', productController.searchProducts);
 
 // GET - danh sách sản phẩm
 router.get("/", productController.getAllProducts);
