@@ -21,34 +21,61 @@ function extractPublicId(url) {
   return `${folder}/${filename}`;
 }
 
+exports.searchProducts = async (req, res) => {
+  try {
+    const { name, category } = req.query;
+    const filter = {};
+
+    if (name) filter.name = { $regex: name, $options: 'i' };
+    if (category) filter.category = { $regex: `^${category}$`, $options: 'i' };
+
+    const products = await Product.find(filter)
+      .collation({ locale: 'vi', strength: 1 })
+      .sort({ createdAt: -1 });
+
+    res.json(products);
+  } catch (err) {
+    console.error('Lỗi khi tìm kiếm:', err);
+    res.status(500).json({ message: 'Lỗi server khi tìm kiếm' });
+  }
+};
+
 // Lấy tất cả sản phẩm
 exports.getAllProducts = async (req, res) => {
   try {
     const filter = {};
 
-    // Lọc theo featured
+    // Lọc theo 'featured'
     if (req.query.featured === 'true') {
       filter.is_featured = true;
     }
 
-    // Lọc theo tên danh mục (category)
+    // Lọc theo 'category'
     if (req.query.category) {
-      filter.category = {
-        $regex: `^${req.query.category}$`,
-        $options: 'i' // Không phân biệt hoa thường
-      };
+      filter.category = { $regex: `^${req.query.category}$`, $options: 'i' }; // Tìm theo danh mục (không phân biệt hoa thường)
     }
 
+    // Lọc theo 'name' (tìm kiếm theo tên sản phẩm)
+    if (req.query.name) {
+      filter.name = { $regex: req.query.name, $options: 'i' }; // Tìm kiếm theo tên sản phẩm
+    }
+
+    // Tìm kiếm sản phẩm trong cơ sở dữ liệu
     const products = await Product.find(filter)
       .collation({ locale: 'vi', strength: 1 }) // Hỗ trợ tiếng Việt
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 }); // Sắp xếp theo thời gian tạo (mới nhất lên đầu)
 
-    res.json(products);
+    if (products.length === 0) {
+      return res.status(404).json({ message: "Không tìm thấy sản phẩm phù hợp với yêu cầu tìm kiếm." });
+    }
+
+    res.json(products); // Trả về danh sách sản phẩm tìm được
   } catch (err) {
     console.error("Lỗi khi lấy danh sách sản phẩm:", err);
     res.status(500).json({ message: "Lỗi server khi lấy sản phẩm" });
   }
 };
+
 
 
 
