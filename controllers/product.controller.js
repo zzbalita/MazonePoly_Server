@@ -2,6 +2,9 @@ const Product = require("../models/Product");
 const cloudinary = require("../utils/cloudinary");
 const path = require("path");
 const mongoose = require("mongoose");
+const jwt = require('jsonwebtoken');
+const wishlistService = require('../services/wishlist.service');
+
 
 
 // Kiểm tra có dùng Cloudinary không
@@ -84,7 +87,26 @@ exports.getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: "Không tìm thấy sản phẩm" });
-    res.json(product);
+
+    // >>> THÊM ĐOẠN NÀY: tính isFavorite nếu có Bearer token
+    let isFavorite = false;
+    try {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded?.userId) {
+          isFavorite = await wishlistService.isInWishlist(decoded.userId, product._id);
+        }
+      }
+    } catch (_) {
+      // Bỏ qua lỗi auth để vẫn trả chi tiết sản phẩm
+      isFavorite = false;
+    }
+    // <<< HẾT ĐOẠN THÊM
+
+    // THAY res.json(product) bằng trả về kèm isFavorite
+    return res.json({ ...product.toObject(), isFavorite });
   } catch (err) {
     console.error("Lỗi khi lấy sản phẩm:", err);
     res.status(500).json({ message: "Lỗi server khi lấy sản phẩm" });
