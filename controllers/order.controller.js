@@ -93,6 +93,33 @@ exports.getMyOrders = async (req, res) => {
     res.status(500).json({ message: "Không thể lấy danh sách đơn hàng." });
   }
 };
+//chi tiết đơn hàng
+exports.getOrderById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const order = await Order.findById(id)
+      .populate('user_id', 'full_name email')
+      .populate('items.product_id', 'name image price')
+
+
+    if (!order) {
+      return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
+    }
+
+    // Chỉ admin hoặc chính chủ mới xem được
+    const isAdmin = req.user.role === 'admin';
+    if (!isAdmin && order.user_id._id.toString() !== req.user.userId) {
+      return res.status(403).json({ message: 'Bạn không có quyền xem đơn hàng này.' });
+    }
+
+    res.status(200).json(order);
+  } catch (error) {
+    console.error('Lỗi khi lấy chi tiết đơn hàng:', error);
+    res.status(500).json({ message: 'Không thể lấy chi tiết đơn hàng.' });
+  }
+};
+
 // Cập nhật trạng thái
 exports.updateOrderStatus = async (req, res) => {
   try {
@@ -217,6 +244,7 @@ exports.cancelOrder = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
     }
 
+    // Không cho hủy nếu đã giao hoặc đã hủy
     if (['delivered', 'cancelled'].includes(order.status)) {
       return res.status(400).json({ message: "Đơn hàng không thể hủy." });
     }
@@ -224,35 +252,71 @@ exports.cancelOrder = async (req, res) => {
     const userId = req.user.userId;
     const isAdmin = req.user.role === 'admin';
 
+    // Kiểm tra quyền hủy
     if (!isAdmin && order.user_id.toString() !== userId) {
       return res.status(403).json({ message: "Bạn không có quyền hủy đơn hàng này." });
     }
 
+    // Người dùng thường chỉ được hủy khi pending
     if (!isAdmin && order.status !== 'pending') {
       return res.status(403).json({ message: "Bạn chỉ có thể hủy đơn hàng khi đang chờ xác nhận." });
     }
 
+    // ===== Cộng lại kho =====
+    // Admin chỉ cộng lại kho khi trạng thái KHÁC pending
+    // User chỉ hủy khi pending nên sẽ không bao giờ cộng lại kho
+    if (isAdmin && order.status !== 'pending') {
+      if (Array.isArray(order.items)) {
+        for (const item of order.items) {
+          const product = await Product.findById(item.product_id);
+          if (product && Array.isArray(product.variations)) {
+            const variation = product.variations.find(
+              v => v.color === item.color && v.size === item.size
+            );
+
+            if (variation) {
+              variation.quantity += item.quantity;
+            } else {
+              console.warn(`Không tìm thấy biến thể: ${item.color}, ${item.size} cho sản phẩm ${item.product_id}`);
+            }
+
+            await product.save();
+          } else {
+            console.warn(`Không tìm thấy sản phẩm hoặc variations không hợp lệ: ${item.product_id}`);
+          }
+        }
+      }
+    }
+
+    // ===== Cập nhật trạng thái đơn hàng =====
     order.status = 'cancelled';
     await order.save();
 
-    //  Gửi event realtime
-    const connectedUsers = req.app.get("connectedUsers"); // Map userId => socketId
-    const socketId = connectedUsers.get(order.user_id.toString());
-    if (socketId) {
-      io.to(socketId).emit("orderStatusUpdated", {
-        orderId: order._id,
-        newStatus: order.status,
-        updatedAt: order.updatedAt,
-      });
+    // ===== Gửi event realtime nếu có =====
+    const io = req.app.get('io');
+    const connectedUsers = req.app.get("connectedUsers");
+    if (io && connectedUsers && connectedUsers instanceof Map) {
+      const socketId = connectedUsers.get(order.user_id.toString());
+      if (socketId) {
+        io.to(socketId).emit("orderStatusUpdated", {
+          orderId: order._id,
+          newStatus: order.status,
+          updatedAt: order.updatedAt,
+        });
+      }
     }
 
-
-    res.status(200).json({ message: 'Đơn hàng đã được hủy.', order });
+    res.status(200).json({
+      message: 'Đơn hàng đã được hủy.',
+      order
+    });
   } catch (error) {
     console.error('Lỗi khi huỷ đơn hàng:', error);
     res.status(500).json({ message: 'Không thể hủy đơn hàng.' });
   }
 };
+
+
 
 // Thêm function tạo đơn hàng VNPay
 exports.createVNPayOrder = async (req, res) => {

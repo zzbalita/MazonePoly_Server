@@ -16,11 +16,15 @@ router.get('/my-orders', auth, orderController.getMyOrders);
 // Lấy danh sách tất cả đơn hàng cho admin
 router.get('/admin/orders', authAdmin, orderController.getAllOrders);
 
+// Lấy chi tiết đơn hàng
+router.get('/:id', auth, orderController.getOrderById);
+
 // Admin cập nhật trạng thái đơn hàng
 router.put('/:id/status', authAdmin, orderController.updateOrderStatus);
 
-// User hoặc Admin hủy đơn hàng
+// Hủy đơn hàng (User chỉ hủy được đơn của mình khi pending, Admin hủy được nhiều trạng thái hơn)
 router.put('/:id/cancel', auth, orderController.cancelOrder);
+
 
 
 module.exports = router;
