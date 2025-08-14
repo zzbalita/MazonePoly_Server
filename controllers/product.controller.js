@@ -4,6 +4,7 @@ const path = require("path");
 const mongoose = require("mongoose");
 const jwt = require('jsonwebtoken');
 const wishlistService = require('../services/wishlist.service');
+const Comment = require("../models/Comment");
 
 
 
@@ -63,10 +64,29 @@ exports.getAllProducts = async (req, res) => {
       filter.name = { $regex: req.query.name, $options: 'i' }; // Tìm kiếm theo tên sản phẩm
     }
 
-    // Tìm kiếm sản phẩm trong cơ sở dữ liệu
-    const products = await Product.find(filter)
-      .collation({ locale: 'vi', strength: 1 }) // Hỗ trợ tiếng Việt
-      .sort({ createdAt: -1 }); // Sắp xếp theo thời gian tạo (mới nhất lên đầu)
+     const products = await Product.aggregate([
+      { $match: filter },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: 'comments',
+          let: { pid: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$product_id', '$$pid'] } } },
+            { $group: { _id: null, avg: { $avg: '$rating' }, count: { $sum: 1 } } },
+          ],
+          as: 'ratingDoc'
+        }
+      },
+      { $addFields: { _r: { $first: '$ratingDoc' } } },
+      {
+        $addFields: {
+          ratingAvg: { $round: [{ $ifNull: ['$_r.avg', 0] }, 1] },
+          ratingCount: { $ifNull: ['$_r.count', 0] },
+        }
+      },
+      { $project: { ratingDoc: 0, _r: 0 } },
+    ]).collation({ locale: 'vi', strength: 1 });
 
     if (products.length === 0) {
       return res.status(404).json({ message: "Không tìm thấy sản phẩm phù hợp với yêu cầu tìm kiếm." });
@@ -83,12 +103,21 @@ exports.getAllProducts = async (req, res) => {
 
 
 // Lấy sản phẩm theo ID
+// Lấy sản phẩm theo ID
 exports.getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: "Không tìm thấy sản phẩm" });
 
-    // >>> THÊM ĐOẠN NÀY: tính isFavorite nếu có Bearer token
+    // Tính rating cho sản phẩm
+    const agg = await Comment.aggregate([
+      { $match: { product_id: new mongoose.Types.ObjectId(product._id) } },
+      { $group: { _id: null, avg: { $avg: '$rating' }, count: { $sum: 1 } } },
+    ]);
+    const ratingAvg = Number((agg[0]?.avg || 0).toFixed(1));
+    const ratingCount = agg[0]?.count || 0;
+
+    // Kiểm tra isFavorite (như cũ)
     let isFavorite = false;
     try {
       const authHeader = req.headers.authorization;
@@ -100,13 +129,11 @@ exports.getProductById = async (req, res) => {
         }
       }
     } catch (_) {
-      // Bỏ qua lỗi auth để vẫn trả chi tiết sản phẩm
       isFavorite = false;
     }
-    // <<< HẾT ĐOẠN THÊM
 
-    // THAY res.json(product) bằng trả về kèm isFavorite
-    return res.json({ ...product.toObject(), isFavorite });
+    // Trả về kèm rating & isFavorite
+    return res.json({ ...product.toObject(), ratingAvg, ratingCount, isFavorite });
   } catch (err) {
     console.error("Lỗi khi lấy sản phẩm:", err);
     res.status(500).json({ message: "Lỗi server khi lấy sản phẩm" });

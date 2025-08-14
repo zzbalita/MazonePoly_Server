@@ -62,6 +62,7 @@ app.use("/api/upload", require("./routes/upload.routes"));
 app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/users", require("./routes/user.routes"));
 app.use("/api/wishlists", require("./routes/wishlist.routes"));
+app.use("/api/comments", require("./routes/comment.routes")); //commen
 // Nhóm route quản lý user bởi admin
 app.use("/api/admin", require("./routes/adminUser.routes"));
 app.use('/api/addresses', addressRoutes);
