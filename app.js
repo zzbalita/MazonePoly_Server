@@ -7,6 +7,8 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 const addressRoutes = require('./routes/address.route');
 const orderRoutes = require("./routes/order.routes");
+const statisticsRoutes = require('./routes/statistics.routes');
+
 // Kết nối MongoDB
 connectDB();
 
@@ -68,5 +70,5 @@ app.use("/api/admin", require("./routes/adminUser.routes"));
 app.use('/api/addresses', addressRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", require("./routes/payment.routes"));
-
+app.use('/api/admin/statistics', statisticsRoutes);
 module.exports = app;

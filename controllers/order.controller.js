@@ -265,7 +265,7 @@ exports.cancelOrder = async (req, res) => {
     // ===== Cộng lại kho =====
     // Admin chỉ cộng lại kho khi trạng thái KHÁC pending
     // User chỉ hủy khi pending nên sẽ không bao giờ cộng lại kho
-    if (isAdmin && order.status !== 'pending') {
+    if (isAdmin) {
       if (Array.isArray(order.items)) {
         for (const item of order.items) {
           const product = await Product.findById(item.product_id);
