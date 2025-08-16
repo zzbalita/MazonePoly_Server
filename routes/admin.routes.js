@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const adminController = require("../controllers/admin.controller");
-const authAdmin = require("../middleware/authAdmin"); // Đổi middleware
+const authAdmin = require("../middleware/authAdmin"); 
 
 // Public routes
 router.post("/register", adminController.register);

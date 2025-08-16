@@ -64,7 +64,7 @@ exports.getAllProducts = async (req, res) => {
       filter.name = { $regex: req.query.name, $options: 'i' }; // Tìm kiếm theo tên sản phẩm
     }
 
-     const products = await Product.aggregate([
+    const products = await Product.aggregate([
       { $match: filter },
       { $sort: { createdAt: -1 } },
       {
@@ -148,7 +148,6 @@ exports.createProduct = async (req, res) => {
       price,
       category,
       brand,
-      status = "Đang bán",
       description,
       variations: variationsRaw,
     } = req.body;
@@ -183,6 +182,17 @@ exports.createProduct = async (req, res) => {
     }
 
     const totalQuantity = variations.reduce((sum, v) => sum + Number(v.quantity), 0);
+    let statusValue = req.body.status || "Đang bán"; // cho phép admin truyền status thủ công
+
+    // Nếu admin không set "Ngừng bán" thì tự động tính toán theo tồn kho
+    if (statusValue !== "Ngừng bán") {
+      if (totalQuantity <= 0) {
+        statusValue = "Hết hàng";
+      } else {
+        statusValue = "Đang bán";
+      }
+    }
+
 
     if (!req.files?.image?.[0])
       return res.status(400).json({ message: "Phải có ảnh đại diện (image)." });
@@ -205,7 +215,7 @@ exports.createProduct = async (req, res) => {
       category: category.trim(),
       brand: brand.trim(),
       variations,
-      status: status.trim(),
+      status: statusValue,
       is_featured: req.body.is_featured === 'true' || req.body.is_featured === true,
     });
 
@@ -253,6 +263,17 @@ exports.updateProduct = async (req, res) => {
         return res.status(400).json({ message: "Variations không hợp lệ." });
       }
     }
+    // Nếu admin không truyền status = "Ngừng bán" thì hệ thống auto tính
+    if (typeof updateData.quantity !== "undefined") {
+      if (updateData.status !== "Ngừng bán") {
+        if (updateData.quantity <= 0) {
+          updateData.status = "Hết hàng";
+        } else {
+          updateData.status = "Đang bán";
+        }
+      }
+    }
+
 
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: "Sản phẩm không tồn tại." });
