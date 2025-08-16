@@ -16,6 +16,7 @@ const ProductSchema = new mongoose.Schema(
 
     price: { type: Number, required: true },
     quantity: { type: Number, default: 0 },
+    sold: { type: Number, default: 0 },
 
     category: { type: String },
     brand: { type: String },
@@ -35,5 +36,8 @@ const ProductSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+ProductSchema.index({ price: 1 });
+ProductSchema.index({ sold: -1 });
 
 module.exports = mongoose.model("Product", ProductSchema);
