@@ -5,7 +5,7 @@ const ProductSchema = new mongoose.Schema(
     name: { type: String, required: true },
     image: { type: String },
     images: [{ type: String }],
-    
+
 
     description: [
       {
@@ -13,7 +13,7 @@ const ProductSchema = new mongoose.Schema(
         value: String,
       },
     ],
-
+    import_price: { type: Number, required: true },//giá nhập
     price: { type: Number, required: true },
     quantity: { type: Number, default: 0 },
     sold: { type: Number, default: 0 },
@@ -31,7 +31,7 @@ const ProductSchema = new mongoose.Schema(
     ],
 
     status: { type: String, default: "Đang bán" },
-    
+
     is_featured: { type: Boolean, default: false },
   },
   { timestamps: true }

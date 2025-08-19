@@ -212,7 +212,7 @@ exports.getAllOrders = async (req, res) => {
     const filter = {};
 
     // Lọc theo status nếu có
-    if (status && ['pending', 'processing', 'shipping', 'delivered', 'cancelled'].includes(status)) {
+    if (status && ['pending','confirmed', 'processing', 'shipping', 'delivered', 'cancelled'].includes(status)) {
       filter.status = status;
     }
 

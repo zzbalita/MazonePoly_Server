@@ -146,6 +146,7 @@ exports.createProduct = async (req, res) => {
     const {
       name,
       price,
+      import_price,
       category,
       brand,
       status = "Đang bán",
@@ -159,6 +160,10 @@ exports.createProduct = async (req, res) => {
     const priceNum = Number(price);
     if (!price || isNaN(priceNum) || priceNum <= 0)
       return res.status(400).json({ message: "Giá phải là số dương." });
+
+    const importPriceNum = Number(import_price);
+    if (!import_price || isNaN(importPriceNum) || importPriceNum <= 0)
+      return res.status(400).json({ message: "Giá nhập phải là số dương." });
 
     let parsedDescription = [];
     if (description) {
@@ -212,6 +217,7 @@ exports.createProduct = async (req, res) => {
       images,
       description: parsedDescription,
       price: priceNum,
+      import_price: importPriceNum,
       quantity: totalQuantity,
       category: category.trim(),
       brand: brand.trim(),
@@ -234,6 +240,14 @@ exports.updateProduct = async (req, res) => {
 
     if (typeof req.body.is_featured !== 'undefined') {
       updateData.is_featured = req.body.is_featured === 'true' || req.body.is_featured === true;
+    }
+    
+    if (req.body.import_price) {
+      const importPriceNum = Number(req.body.import_price);
+      if (!importPriceNum || isNaN(importPriceNum) || importPriceNum <= 0) {
+        return res.status(400).json({ message: "Giá nhập phải là số dương." });
+      }
+      updateData.import_price = importPriceNum;
     }
 
 
@@ -394,3 +408,88 @@ exports.getRelatedProductsByCategory = async (req, res) => {
   }
 };
 
+//Nhập hàng
+exports.restockProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // payload chấp nhận 1 trong 2 kiểu:
+    // 1) items: [{ color, size, quantity }]  (áp dụng cho SP có variations)
+    // 2) quantity: number                    (chỉ dùng cho SP KHÔNG có variations)
+    // allowNew: cho phép thêm biến thể mới khi chưa tồn tại (mặc định false)
+    const { items, quantity, allowNew = false } = req.body;
+
+    const product = await Product.findById(id);
+    if (!product) return res.status(404).json({ message: "Sản phẩm không tồn tại." });
+
+     // Nếu có gửi import_price mới → cập nhật
+    if (import_price) {
+      const newImportPrice = Number(import_price);
+      if (!isNaN(newImportPrice) && newImportPrice > 0) {
+        product.import_price = newImportPrice;
+      } else {
+        return res.status(400).json({ message: "Giá nhập phải là số dương." });
+      }
+    }
+
+    // Nếu có variations thì BẮT BUỘC dùng 'items' để đảm bảo tổng khớp variations
+    const hasVariations = Array.isArray(product.variations) && product.variations.length > 0;
+
+    if (hasVariations) {
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({
+          message: "Sản phẩm có biến thể. Hãy gửi 'items: [{color,size,quantity}]' để nhập hàng."
+        });
+      }
+
+      // cập nhật theo từng item
+      for (const it of items) {
+        const addQty = Number(it.quantity);
+        if (!it.color || !it.size || !Number.isFinite(addQty) || addQty <= 0) {
+          return res.status(400).json({ message: "Mỗi item cần color, size và quantity > 0." });
+        }
+
+        const idx = product.variations.findIndex(
+          v => v.color === it.color && v.size === it.size
+        );
+
+        if (idx >= 0) {
+          product.variations[idx].quantity += addQty;
+        } else if (allowNew) {
+          product.variations.push({
+            color: it.color,
+            size: it.size,
+            quantity: addQty
+          });
+        } else {
+          return res.status(400).json({
+            message: `Biến thể ${it.color}-${it.size} chưa tồn tại. Bật 'allowNew' để tự thêm.`
+          });
+        }
+      }
+
+      // tính lại tổng tồn kho từ variations
+      product.quantity = product.variations.reduce((s, v) => s + Number(v.quantity || 0), 0);
+    } else {
+      // SP không có variations: cho phép nhập nhanh theo 'quantity'
+      const addQty = Number(quantity);
+      if (!Number.isFinite(addQty) || addQty <= 0) {
+        return res.status(400).json({
+          message: "Truyền 'quantity' là số dương để nhập hàng cho sản phẩm không có biến thể."
+        });
+      }
+      product.quantity = Number(product.quantity || 0) + addQty;
+    }
+
+    // Cập nhật status tự động NẾU không phải admin đã set "Ngừng bán"
+    if (product.status !== "Ngừng bán") {
+      product.status = product.quantity > 0 ? "Đang bán" : "Hết hàng";
+    }
+
+    await product.save();
+    return res.json(product);
+  } catch (err) {
+    console.error("Lỗi nhập hàng:", err);
+    return res.status(500).json({ message: "Không thể nhập hàng." });
+  }
+};
