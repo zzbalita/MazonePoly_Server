@@ -33,7 +33,8 @@ router.delete("/:id", productController.deleteProduct);
 // PUT /api/admin/products/:id/featured
 router.put("/:id/featured", productController.toggleFeatured);
 
-
+// POST - Nhập hàng
+router.post("/:id/restock", productController.restockProduct);
 
 
 
