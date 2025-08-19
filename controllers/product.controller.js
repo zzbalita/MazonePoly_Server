@@ -64,7 +64,7 @@ exports.getAllProducts = async (req, res) => {
       filter.name = { $regex: req.query.name, $options: 'i' }; // Tìm kiếm theo tên sản phẩm
     }
 
-    const products = await Product.aggregate([
+     const products = await Product.aggregate([
       { $match: filter },
       { $sort: { createdAt: -1 } },
       {
@@ -148,6 +148,7 @@ exports.createProduct = async (req, res) => {
       price,
       category,
       brand,
+      status = "Đang bán",
       description,
       variations: variationsRaw,
     } = req.body;
@@ -215,7 +216,7 @@ exports.createProduct = async (req, res) => {
       category: category.trim(),
       brand: brand.trim(),
       variations,
-      status: statusValue,
+      status: status.trim(),
       is_featured: req.body.is_featured === 'true' || req.body.is_featured === true,
     });
 
