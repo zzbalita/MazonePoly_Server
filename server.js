@@ -22,6 +22,38 @@ const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
 
+  // Join user to their personal room for chat notifications
+  socket.on("joinUser", (userId) => {
+    socket.join(`user_${userId}`);
+    console.log(`👤 User ${userId} joined room user_${userId}`);
+  });
+
+  // Handle chat typing indicators
+  socket.on("typing", (data) => {
+    socket.to(`user_${data.userId}`).emit("userTyping", {
+      sessionId: data.sessionId,
+      isTyping: true
+    });
+  });
+
+  socket.on("stopTyping", (data) => {
+    socket.to(`user_${data.userId}`).emit("userTyping", {
+      sessionId: data.sessionId,
+      isTyping: false
+    });
+  });
+
+  // Handle joining specific chat sessions
+  socket.on("joinChatSession", (data) => {
+    socket.join(`chat_${data.sessionId}`);
+    console.log(`💬 Socket ${socket.id} joined chat session ${data.sessionId}`);
+  });
+
+  socket.on("leaveChatSession", (data) => {
+    socket.leave(`chat_${data.sessionId}`);
+    console.log(`💬 Socket ${socket.id} left chat session ${data.sessionId}`);
+  });
+
   socket.on("disconnect", () => {
     console.log("🔴 Socket disconnected:", socket.id);
   });

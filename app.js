@@ -71,4 +71,5 @@ app.use('/api/addresses', addressRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", require("./routes/payment.routes"));
 app.use('/api/admin/statistics', statisticsRoutes);
+app.use("/api/chat", require("./routes/chat.routes"));
 module.exports = app;
