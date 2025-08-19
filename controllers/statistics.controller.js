@@ -296,7 +296,7 @@ exports.getInventoryStatistics = async (req, res) => {
     const { category, brand } = req.query;
     let { minStock, maxStock, minPrice, maxPrice } = req.query;
 
-    // Convert sang số hợp lệ
+    // Convert sang số
     minStock = parseInt(minStock);
     maxStock = parseInt(maxStock);
     minPrice = parseInt(minPrice);
@@ -306,7 +306,7 @@ exports.getInventoryStatistics = async (req, res) => {
     if (category) match.category = category;
     if (brand) match.brand = brand;
 
-    // Tổng quan tồn kho
+    // ================= Tổng quan tồn kho =================
     const overall = await Product.aggregate([
       { $match: match },
       { $unwind: "$variations" },
@@ -321,17 +321,11 @@ exports.getInventoryStatistics = async (req, res) => {
     ]);
     const overview = overall[0] || { totalStock: 0, totalValueSell: 0, totalValueImport: 0 };
 
-    // Danh sách sản phẩm chi tiết nếu category có
+    // ================= Danh sách sản phẩm theo category =================
     let products = [];
     if (category) {
-      const productMatch = { ...match };
-      if (!isNaN(minStock)) productMatch.totalStock = { $gte: minStock };
-      if (!isNaN(maxStock)) productMatch.totalStock = { ...productMatch.totalStock, $lte: maxStock };
-      if (!isNaN(minPrice)) productMatch.price = { $gte: minPrice };
-      if (!isNaN(maxPrice)) productMatch.price = { ...productMatch.price, $lte: maxPrice };
-
       products = await Product.aggregate([
-        { $match: match },
+        { $match: match }, // lọc category, brand trước
         { $unwind: "$variations" },
         {
           $group: {
@@ -340,7 +334,7 @@ exports.getInventoryStatistics = async (req, res) => {
             price: { $first: "$price" },
             import_price: { $first: "$import_price" },
             brand: { $first: "$brand" },
-            image: { $first: { $arrayElemAt: ["$images", 0] } }, // lấy ảnh đầu tiên nếu có mảng images
+            image: { $first: { $arrayElemAt: ["$images", 0] } },
             totalStock: { $sum: "$variations.quantity" }
           }
         },
@@ -350,12 +344,19 @@ exports.getInventoryStatistics = async (req, res) => {
             inventoryValueImport: { $multiply: ["$totalStock", "$import_price"] }
           }
         },
-        { $match: productMatch },
+        {
+          $match: {
+            ...(isNaN(minStock) ? {} : { totalStock: { $gte: minStock } }),
+            ...(isNaN(maxStock) ? {} : { totalStock: { $lte: maxStock } }),
+            ...(isNaN(minPrice) ? {} : { price: { $gte: minPrice } }),
+            ...(isNaN(maxPrice) ? {} : { price: { $lte: maxPrice } })
+          }
+        },
         { $sort: { inventoryValueSell: -1 } }
       ]);
     }
 
-    // Nếu không có category → trả theo danh mục
+    // ================= Nếu không có category thì gom theo danh mục =================
     let stockByCategory = [];
     if (!category) {
       stockByCategory = await Product.aggregate([
@@ -386,6 +387,7 @@ exports.getInventoryStatistics = async (req, res) => {
     res.status(500).json({ message: "Lỗi server khi thống kê tồn kho" });
   }
 };
+
 
 
 
