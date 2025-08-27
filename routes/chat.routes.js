@@ -1,30 +1,51 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
+const adminOnly = require('../middleware/adminOnly');
 const {
   getChatHistory,
   sendMessage,
   getChatSessions,
   createChatSession,
-  closeChatSession
+  closeChatSession,
+  // Suggestion handling
+  handleSuggestionClick,
+  // Admin chat methods
+  getAllAdminChats,
+  getAdminChatHistory,
+  sendAdminResponse,
+  createAdminChatSession,
+  createUserAdminChatSession,
+  sendAdminChatMessage,
+  getUserAdminChatHistory
 } = require('../controllers/chat.controller');
 
 // All chat routes require authentication
 router.use(authMiddleware);
 
-// Get all chat sessions for user
+// User chat routes
 router.get('/sessions', getChatSessions);
-
-// Create new chat session
 router.post('/sessions', createChatSession);
-
-// Get chat history for specific session
 router.get('/sessions/:sessionId', getChatHistory);
-
-// Send message to specific session
 router.post('/sessions/:sessionId/messages', sendMessage);
-
-// Close chat session
 router.patch('/sessions/:sessionId/close', closeChatSession);
+
+// Suggestion handling route
+router.post('/suggestion', handleSuggestionClick);
+
+// User admin chat routes (for users to connect with admin)
+router.post('/user-admin-sessions', createUserAdminChatSession);
+
+// NEW: Admin chat message endpoint for users
+router.post('/admin/sessions/:sessionId/messages', sendAdminChatMessage);
+
+// NEW: Get admin chat history for user (all sessions)
+router.get('/admin/history', getUserAdminChatHistory);
+
+// Admin chat routes (require admin privileges)
+router.get('/admin/all-chats', adminOnly, getAllAdminChats);
+router.get('/admin/sessions/:sessionId', adminOnly, getAdminChatHistory);
+router.post('/admin/sessions/:sessionId/respond', adminOnly, sendAdminResponse);
+router.post('/admin/sessions', adminOnly, createAdminChatSession);
 
 module.exports = router;
