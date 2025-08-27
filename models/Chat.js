@@ -11,7 +11,15 @@ const ChatSchema = new Schema({
   session_id: {
     type: String,
     required: true,
-    index: true
+    index: true,
+    unique: true
+  },
+  
+  // Chat type: 'bot' for AI chat, 'admin' for admin chat
+  type: {
+    type: String,
+    enum: ['bot', 'admin'],
+    default: 'bot'
   },
   
   messages: [{
@@ -40,8 +48,26 @@ const ChatSchema = new Schema({
     // Metadata for bot responses
     response_type: {
       type: String,
-      enum: ['greeting', 'product_info', 'pricing', 'shipping', 'support', 'default'],
+      enum: [
+        'greeting', 
+        'product_info', 
+        'product_list',
+        'pricing', 
+        'shipping', 
+        'support', 
+        'help',
+        'info',
+        'admin_response', 
+        'welcome',
+        'default'
+      ],
       default: 'default'
+    },
+    
+    // For admin responses
+    admin_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin'
     },
     
     // For future AI integration
@@ -79,6 +105,11 @@ const ChatSchema = new Schema({
   bot_messages_count: {
     type: Number,
     default: 0
+  },
+  
+  admin_messages_count: {
+    type: Number,
+    default: 0
   }
   
 }, {
@@ -90,29 +121,31 @@ const ChatSchema = new Schema({
 
 // Indexes for better performance
 ChatSchema.index({ user_id: 1, session_id: 1 });
-ChatSchema.index({ session_id: 1 });
 ChatSchema.index({ last_activity: -1 });
 ChatSchema.index({ 'messages.timestamp': -1 });
+ChatSchema.index({ type: 1, status: 1 });
 
 // Update counters before saving
 ChatSchema.pre('save', function(next) {
   if (this.isModified('messages')) {
     this.total_messages = this.messages.length;
     this.user_messages_count = this.messages.filter(msg => msg.is_user).length;
-    this.bot_messages_count = this.messages.filter(msg => !msg.is_user).length;
+    this.bot_messages_count = this.messages.filter(msg => !msg.is_user && !msg.admin_id).length;
+    this.admin_messages_count = this.messages.filter(msg => msg.admin_id).length;
     this.last_activity = new Date();
   }
   next();
 });
 
 // Method to add a new message
-ChatSchema.methods.addMessage = function(text, isUser, responseType = 'default') {
+ChatSchema.methods.addMessage = function(text, isUser, responseType = 'default', adminId = null) {
   const newMessage = {
     message_id: new mongoose.Types.ObjectId().toString(),
     text: text,
     is_user: isUser,
     timestamp: new Date(),
-    response_type: isUser ? undefined : responseType
+    response_type: isUser ? undefined : responseType,
+    admin_id: adminId
   };
   
   this.messages.push(newMessage);
@@ -128,23 +161,58 @@ ChatSchema.methods.getRecentMessages = function(limit = 50) {
 };
 
 // Static method to find or create chat session
-ChatSchema.statics.findOrCreateSession = async function(userId, sessionId) {
+ChatSchema.statics.findOrCreateSession = async function(userId, sessionId, type = 'bot') {
   let chat = await this.findOne({ user_id: userId, session_id: sessionId });
   
   if (!chat) {
-    chat = new this({
-      user_id: userId,
-      session_id: sessionId,
-      messages: [{
-        text: 'Chào bạn! Tôi là trợ lý ảo của Manzone. Tôi có thể giúp bạn tìm sản phẩm, hỗ trợ đặt hàng, và trả lời các câu hỏi về thời trang nam. Bạn cần hỗ trợ gì?',
-        is_user: false,
-        response_type: 'greeting'
-      }]
-    });
+    // For admin chats, don't create welcome message - start clean
+    if (type === 'admin') {
+      chat = new this({
+        user_id: userId,
+        session_id: sessionId,
+        type: type,
+        last_activity: new Date(),
+        messages: [] // No welcome message for admin chats
+      });
+    } else {
+      const welcomeMessage = 'Chào bạn! Tôi là trợ lý ảo của Manzone. Tôi có thể giúp bạn tìm sản phẩm, hỗ trợ đặt hàng, và trả lời các câu hỏi về thời trang nam. Bạn cần hỗ trợ gì?';
+      
+      chat = new this({
+        user_id: userId,
+        session_id: sessionId,
+        type: type,
+        last_activity: new Date(),
+        messages: [{
+          message_id: new mongoose.Types.ObjectId().toString(),
+          text: welcomeMessage,
+          is_user: false,
+          response_type: 'greeting',
+          timestamp: new Date()
+        }]
+      });
+    }
     await chat.save();
   }
   
   return chat;
+};
+
+// Static method to find admin chat sessions
+ChatSchema.statics.findAdminChatSessions = function(userId) {
+  return this.find({ 
+    user_id: userId, 
+    type: 'admin',
+    status: 'active' 
+  }).sort({ last_activity: -1 });
+};
+
+// Static method to find bot chat sessions
+ChatSchema.statics.findBotChatSessions = function(userId) {
+  return this.find({ 
+    user_id: userId, 
+    type: 'bot',
+    status: 'active' 
+  }).sort({ last_activity: -1 });
 };
 
 module.exports = mongoose.model('Chat', ChatSchema, 'chats');
